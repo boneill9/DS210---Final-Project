@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+csv = "1.2"             # For reading and writing CSV files
+serde = { version = "1.0", features = ["derive"] } # For deserialization
+regex = "1.7"           # For regular expressions
+polars = { version = "0.33", features = ["csv"] } # For data analysis (includes CSV reading)
