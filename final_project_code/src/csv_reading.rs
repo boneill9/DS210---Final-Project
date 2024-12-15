@@ -1,8 +1,7 @@
 use csv::{ReaderBuilder, WriterBuilder}; // Import necessary structs from the csv crate
 use polars::prelude::CsvReader; // Import CsvReader from polars
 use std::fs::File;
-use crate::Error;
-
+use std::error::Error;
 
 
 pub trait CsvProcessor {
