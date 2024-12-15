@@ -31,7 +31,7 @@ impl CsvFileProcessor {
                     if let Some(caps) = re.captures(field) {
                         let value = caps[1].parse::<f64>().unwrap_or(0.0);
                         let multiplier = match caps.get(2).map(|m| m.as_str()) {
-                            Some("M") | Some("m") => 1_000_000.0,
+                            Some("M") | Some("m") => 100_000.0,
                             Some("K") | Some("k") => 1_000.0,
                             _ => 1.0,
                         };
