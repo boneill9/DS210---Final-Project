@@ -29,15 +29,20 @@ impl CsvFileProcessor {
                 .map(|field| {
                     // Process each field to clean up the numbers
                     if let Some(caps) = re.captures(field) {
+                        // Parse the numeric value as a float
                         let value = caps[1].parse::<f64>().unwrap_or(0.0);
+                        
+                        // Handle multipliers for M and K (millions and thousands)
                         let multiplier = match caps.get(2).map(|m| m.as_str()) {
                             Some("M") | Some("m") => 100_000.0,
                             Some("K") | Some("k") => 1_000.0,
                             _ => 1.0,
                         };
+                        
+                        // Apply multiplier and convert to string
                         (value * multiplier).to_string()
                     } else {
-                        field.to_string()
+                        field.to_string() // Non-numeric fields remain unchanged
                     }
                 })
                 .collect();
