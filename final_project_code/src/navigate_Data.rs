@@ -20,7 +20,11 @@ pub trait CsvProcessor {
     fn read_csv(&self) -> Result<(), Box<dyn Error>>;
     fn clean_csv(&self) -> Result<Vec<Vec<String>>, Box<dyn Error>>;
     fn analyze_csv(&self) -> Result<(), Box<dyn Error>>;
-    fn write_csv(&self, records: Vec<Vec<String>>) -> Result<(), Box<dyn Error>>;
+    fn write_csv(
+        &self,
+        records: Vec<Vec<String>>,
+        selected_columns: &[usize],
+    ) -> Result<(), Box<dyn Error>>;
 }
 
 // Implementing the CsvProcessor trait for CsvFileProcessor
@@ -108,16 +112,24 @@ impl CsvProcessor for CsvFileProcessor {
     }
 
     // Step 4: Write cleaned data to a new CSV file
-    fn write_csv(&self, records: Vec<Vec<String>>) -> Result<(), Box<dyn Error>> {
+    fn write_csv(&self, records: Vec<Vec<String>>, selected_columns: &[usize]) -> Result<(), Box<dyn Error>> {
         let mut writer = WriterBuilder::new().from_path(&self.file_path)?;
-
+    
         for record in records {
-            writer.write_record(&record)?;
+            // Extract only the selected columns from the record
+            let filtered_record: Vec<String> = selected_columns
+                .iter()
+                .filter_map(|&index| record.get(index).cloned()) // Safely get the value at the index
+                .collect();
+    
+            // Write the filtered record
+            writer.write_record(&filtered_record)?;
         }
-
+    
         writer.flush()?;
-        println!("Cleaned data written to: {}", self.file_path);
-
+        println!("Selected columns written to: {}", self.file_path);
+    
         Ok(())
     }
+    
 }

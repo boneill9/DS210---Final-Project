@@ -18,20 +18,26 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Clean CSV
     let cleaned_data = processor.clean_csv()?;
+    println!("Cleaned data: {:?}", cleaned_data);
 
     // Write cleaned data to a new file
     let new_file_path = "influencers_september_cleaned.csv";
-    processor.write_csv(cleaned_data)?;
+    processor.write_csv(cleaned_data, &[0, 2, 3, 4, 5, 6, 7])?;
+    println!("Cleaned CSV file written to: {}", new_file_path);
 
-    // Analyze CSV
-    processor.analyze_csv()?;
+    // Verify the cleaned file exists
+    if !std::path::Path::new(new_file_path).exists() {
+        println!("Error: Cleaned file does not exist!");
+        return Ok(());
+    }
 
-    let df = CsvReader::from_path("influencers_september_cleaned.csv")?
-        .has_header(true)    
-        .finish()?;          
+    // Load cleaned data into DataFrame
+    let df = CsvReader::from_path(file_path)?
+        .has_header(true)
+        .finish()?;
 
     // Print the DataFrame
-    println!("{:?}", df);
+    println!("DataFrame loaded from cleaned CSV:\n{:?}", df);
 
     Ok(())
 }
