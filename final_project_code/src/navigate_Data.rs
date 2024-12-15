@@ -3,6 +3,7 @@ use regex::Regex;
 use serde::Deserialize;
 use std::error::Error;
 use polars::prelude::*;
+use serde::ser::StdError;
 
 // Struct to represent a CSV File Processor
 pub struct CsvFileProcessor {
@@ -18,12 +19,13 @@ pub struct Record {
 // Trait for processing CSV files
 pub trait CsvProcessor {
     fn read_csv(&self) -> Result<(), Box<dyn Error>>;
-    fn clean_csv(&self) -> Result<Vec<Vec<String>>, Box<dyn Error>>;
+    fn clean_csv(&self, output_file_path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>>;
     fn analyze_csv(&self) -> Result<(), Box<dyn Error>>;
     fn write_csv(
         &self,
-        records: Vec<Vec<String>>,
-        selected_columns: &[usize],
+        headers: &[String],         // Pass headers as a slice of strings
+        records: Vec<Vec<String>>,  // The cleaned data
+        output_file_path: &str, 
     ) -> Result<(), Box<dyn Error>>;
 }
 
@@ -42,27 +44,31 @@ impl CsvProcessor for CsvFileProcessor {
         Ok(())
     }
 
-    // Step 2: Clean CSV file
-    fn clean_csv(&self) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let mut reader = ReaderBuilder::new().from_path(&self.file_path)?;
-        let mut cleaned_data = Vec::new();
-
-        let re = Regex::new(r"[^\w\s]").unwrap(); // Regex to remove non-alphanumeric characters
-
-        for result in reader.records() {
-            let record = result?;
-            let cleaned_record: Vec<String> = record
-                .iter()
-                .map(|field| {
-                    let sanitized = re.replace_all(field, "").to_string();
-                    if sanitized.is_empty() { "N/A".to_string() } else { sanitized }
-                })
-                .collect();
-            cleaned_data.push(cleaned_record);
-        }
-
-        Ok(cleaned_data)
+    fn clean_csv(&self, data: Vec<String>) -> Vec<String> {
+        let re = Regex::new(r"(?i)(\d+(?:\.\d+)?)([mk])?").unwrap();
+    
+        // Iterate over each record in the data vector
+        let cleaned_record: Vec<String> = data.iter()
+            .map(|field| {
+                if let Some(caps) = re.captures(field) {
+                    let value = caps[1].parse::<f64>().unwrap_or(0.0);
+                    let multiplier = match caps.get(2).map(|m| m.as_str()) {
+                        Some("M") | Some("m") => 1_000_000.0,
+                        Some("K") | Some("k") => 1_000.0,
+                        _ => 1.0,
+                    };
+                    (value * multiplier).to_string()
+                } else {
+                    field.to_string()
+                }
+            })
+            .collect();
+    
+        cleaned_record
     }
+    
+    
+    
 
     // Step 3: Analyze CSV file
     fn analyze_csv(&self) -> Result<(), Box<dyn Error>> {
@@ -110,26 +116,29 @@ impl CsvProcessor for CsvFileProcessor {
 
         Ok(())
     }
-
-    // Step 4: Write cleaned data to a new CSV file
-    fn write_csv(&self, records: Vec<Vec<String>>, selected_columns: &[usize]) -> Result<(), Box<dyn Error>> {
-        let mut writer = WriterBuilder::new().from_path(&self.file_path)?;
+    fn write_csv(
+        &self,
+        headers: &[String],         // Pass headers as a slice of strings
+        records: Vec<Vec<String>>,  // The cleaned data
+        output_file_path: &str,     // Path for the output CSV file
+    ) -> Result<(), Box<dyn Error>> {
+        let mut writer = csv::Writer::from_path(output_file_path)?;
     
+        // Write the headers
+        writer.write_record(headers)?;
+    
+        // Write the records
         for record in records {
-            // Extract only the selected columns from the record
-            let filtered_record: Vec<String> = selected_columns
-                .iter()
-                .filter_map(|&index| record.get(index).cloned()) // Safely get the value at the index
-                .collect();
-    
-            // Write the filtered record
-            writer.write_record(&filtered_record)?;
+            writer.write_record(record)?;
         }
     
-        writer.flush()?;
-        println!("Selected columns written to: {}", self.file_path);
+        writer.flush()?; // Ensure everything is written to the file
     
         Ok(())
     }
+    
+    
+    
+    
     
 }
