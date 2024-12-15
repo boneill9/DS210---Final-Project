@@ -1,12 +1,8 @@
-extern crate ndarray;
 extern crate rand;
 extern crate plotters;
-extern crate polars;
 
 use plotters::prelude::*;
-use crate::k_means::rand::Rng;
-use ndarray::Array2;
-
+use rand::Rng;
 
 pub trait KMeans {
     fn kmeans(&self, k: usize, max_iters: usize) -> Vec<usize>
@@ -16,23 +12,21 @@ pub trait KMeans {
     fn assign_labels(&self, centroids: &[Vec<f64>]) -> Vec<usize>;
     fn update_centroids(&self, labels: &[usize], k: usize) -> Vec<Vec<f64>>;
     fn euclidean_distance(a: &[f64], b: &[f64]) -> f64;
-    
-
 }
 
-// Implement the KMeans trait for Array2<f64>
-impl KMeans for Array2<f64> {
+// Implement the KMeans trait for Vec<Vec<f64>>
+impl KMeans for Vec<Vec<f64>> {
     fn kmeans(&self, k: usize, max_iters: usize) -> Vec<usize>
     where
-        Self: Sized // Ensure Self is Sized
+        Self: Sized
     {
         let mut centroids = self.initialize_centroids(k);
-        let mut labels = vec![0; self.nrows()];  // `nrows` works now because self is an Array2<f64>
+        let mut labels = vec![0; self.len()]; // Number of points in `self`
 
         for _ in 0..max_iters {
             let new_labels = self.assign_labels(&centroids);
             if new_labels == labels {
-                break; // If labels don't change, the algorithm has converged
+                break; // Algorithm has converged if labels don't change
             }
             labels = new_labels;
             centroids = self.update_centroids(&labels, k);
@@ -44,18 +38,17 @@ impl KMeans for Array2<f64> {
     fn initialize_centroids(&self, k: usize) -> Vec<Vec<f64>> {
         let mut rng = rand::thread_rng();
         let mut centroids = Vec::new();
-        let rows = self.nrows();
 
         for _ in 0..k {
-            let idx = rng.gen_range(0..rows);
-            centroids.push(self.row(idx).to_vec());
+            let idx = rng.gen_range(0..self.len());
+            centroids.push(self[idx].clone()); // Clone the randomly selected row
         }
 
         centroids
     }
 
     fn assign_labels(&self, centroids: &[Vec<f64>]) -> Vec<usize> {
-        self.outer_iter()
+        self.iter()
             .map(|point| {
                 centroids
                     .iter()
@@ -63,28 +56,29 @@ impl KMeans for Array2<f64> {
                     .min_by(|(_, a), (_, b)| {
                         let dist_a = Self::euclidean_distance(&point.to_vec(), a);
                         let dist_b = Self::euclidean_distance(&point.to_vec(), b);
-                        dist_a.partial_cmp(&dist_b).unwrap()
+                        dist_a.partial_cmp(&dist_b).unwrap_or(std::cmp::Ordering::Equal)
                     })
                     .map(|(idx, _)| idx)
-                    .unwrap()
+                    .unwrap_or_else(|| 0) // Fallback to some default index
             })
             .collect()
-    }
+    }    
 
     fn update_centroids(&self, labels: &[usize], k: usize) -> Vec<Vec<f64>> {
-        let mut new_centroids = vec![vec![0.0; self.ncols()]; k];
-        let mut counts = vec![0; k];
+        let mut new_centroids = vec![vec![0.0; self[0].len()]; k]; // Initialize centroids
+        let mut counts = vec![0; k]; // Track the count of points in each cluster
 
         for (i, label) in labels.iter().enumerate() {
-            new_centroids[*label].iter_mut().zip(self.row(i).iter()).for_each(|(c, &x)| {
-                *c += x;
-            });
-            counts[*label] += 1;
+            for (j, &value) in self[i].iter().enumerate() {
+                new_centroids[*label][j] += value; // Sum up points
+            }
+            counts[*label] += 1; // Increment count for the cluster
         }
 
+        // Calculate the mean for each centroid
         for (centroid, count) in new_centroids.iter_mut().zip(counts.iter()) {
             for val in centroid.iter_mut() {
-                *val /= *count as f64;
+                *val /= *count as f64; // Average the values
             }
         }
 
@@ -100,10 +94,7 @@ impl KMeans for Array2<f64> {
     }
 }
 
-
-// Plot function remains the same as before
-use plotters::prelude::*;
-
+// Plot function remains the same
 pub fn plot_data(data: &Vec<Vec<f64>>, labels: &[usize], k: usize) -> Result<(), Box<dyn std::error::Error>> {
     // Calculate the min and max values for x and y axes
     let (min_x, max_x) = data.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), point| {
@@ -154,4 +145,3 @@ pub fn plot_data(data: &Vec<Vec<f64>>, labels: &[usize], k: usize) -> Result<(),
     println!("Plot saved to 'kmeans_plot.png'.");
     Ok(())
 }
-
