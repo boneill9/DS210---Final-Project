@@ -1,21 +1,37 @@
-mod graphs;
-mod csv_reading;
-use crate::csv_reading::{CsvProcessor, CsvHandler};
+mod navigate_Data;
 use polars::prelude::CsvReader;
+use std::error::Error;
+use std::fmt;
+use polars::frame::DataFrame;
+use polars::prelude::SerReader;
+use crate::navigate_Data::CsvFileProcessor;
 
-use graphs::{read_tiktokers_from_csv, build_similarity_graph, visualize_graph};
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let handler = CsvHandler;
+// Import the CsvProcessor trait to use its methods
+use crate::navigate_Data::CsvProcessor; // <-- Ensure this import is here
 
-    let file_path = "data/influencers_september.csv";
-    let cleaned_file_path = "cleaned_output_sept.csv";
+fn main() -> Result<(), Box<dyn Error>> {
+    let file_path = "data/influencers_september.csv"; // Input CSV file path
+    let processor = CsvFileProcessor { file_path: file_path.to_string() };
 
-    // CSV Processing
-    handler.read_csv(file_path)?;
-    let (cleaned_data, headers) = handler.clean_csv(file_path)?;
-    handler.write_cleaned_csv(cleaned_file_path, cleaned_data, headers)?;
-    handler.analyze_csv(cleaned_file_path)?;
+    // Read CSV
+    processor.read_csv()?;
 
+    // Clean CSV
+    let cleaned_data = processor.clean_csv()?;
+
+    // Write cleaned data to a new file
+    let new_file_path = "influencers_september_cleaned.csv";
+    processor.write_csv(cleaned_data)?;
+
+    // Analyze CSV
+    processor.analyze_csv()?;
+
+    let df = CsvReader::from_path("influencers_september_cleaned.csv")?
+        .has_header(true)    
+        .finish()?;          
+
+    // Print the DataFrame
+    println!("{:?}", df);
+
+    Ok(())
 }
-
-
