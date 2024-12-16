@@ -94,8 +94,17 @@ impl KMeans for Vec<Vec<f64>> {
     }
 }
 
-// Plot function remains the same
-pub fn plot_data(data: &Vec<Vec<f64>>, labels: &[usize], k: usize) -> Result<(), Box<dyn std::error::Error>> {
+pub fn plot_data(
+    data: &Vec<Vec<f64>>,
+    labels: &[usize],
+    k: usize,
+    filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Ensure the data is 2D
+    if data.is_empty() || data[0].len() != 2 {
+        return Err("Only 2D data can be plotted.".into());
+    }
+
     // Calculate the min and max values for x and y axes
     let (min_x, max_x) = data.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), point| {
         (min.min(point[0]), max.max(point[0]))
@@ -105,13 +114,15 @@ pub fn plot_data(data: &Vec<Vec<f64>>, labels: &[usize], k: usize) -> Result<(),
         (min.min(point[1]), max.max(point[1]))
     });
 
-    // Make a little extra space around the data points
+    // Add padding to the ranges
     let padding = 0.1;
-    let x_range = (min_x - padding * (max_x - min_x))..(max_x + padding * (max_x - min_x));
-    let y_range = (min_y - padding * (max_y - min_y))..(max_y + padding * (max_y - min_y));
+    let x_padding = padding * (max_x - min_x).max(1.0);
+    let y_padding = padding * (max_y - min_y).max(1.0);
+    let x_range = (min_x - x_padding)..(max_x + x_padding);
+    let y_range = (min_y - y_padding)..(max_y + y_padding);
 
     // Create the drawing area
-    let root = BitMapBackend::new("kmeans_plot.png", (800, 600)).into_drawing_area();
+    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
     // Create a chart builder with the dynamic ranges
@@ -123,25 +134,23 @@ pub fn plot_data(data: &Vec<Vec<f64>>, labels: &[usize], k: usize) -> Result<(),
     chart.configure_mesh().draw()?;
 
     // Plot the data points
+    let circle_size = ((max_x - min_x).max(max_y - min_y) * 0.01).max(2.0) as i32;
     for (i, point) in data.iter().enumerate() {
         let x = point[0];
         let y = point[1];
         let label = labels[i];
 
-        // Choose color based on label
-        let color = match label {
-            0 => RED.to_rgba(),
-            1 => BLUE.to_rgba(),
-            _ => GREEN.to_rgba(),
-        };
+        // Get color from Palette99
+        let color = Palette99::pick(label).to_rgba();
 
         // Draw the point on the chart
-        chart.draw_series(std::iter::once(Circle::new((x, y), 5, color)))?;
+        chart.draw_series(std::iter::once(Circle::new((x, y), circle_size, color)))?;
     }
 
     // Present the plot and save to file
     root.present()?;
 
-    println!("Plot saved to 'kmeans_plot.png'.");
+    println!("Plot saved to '{}'.", filename);
     Ok(())
 }
+
